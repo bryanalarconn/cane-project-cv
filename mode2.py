@@ -5,11 +5,15 @@ from serial.tools import list_ports
 
 BAUD = 115200
 TRIGGER_LINE = "YOLO_TRIGGER"
+STOP_LINE = "YOLO_STOP" 
 
 # Prevent spawning multiple YOLO runs at once
 proc = None
 file = None
 
+
+# this is subject to change, this is based off mac needs
+# when running on pi you will have to update accordingly
 def find_pico_port() -> str | None:
     ports = [p.device for p in list_ports.comports()]
     # Prefer usbmodem (common for Pico)
@@ -37,6 +41,32 @@ def start_yolo():
     #stdout will be log (file) which says everything goes to the file not TERMINAL
     proc = subprocess.Popen(["python3", "run_yolo.py"], stdout=file, stderr=subprocess.STDOUT, start_new_session=True)
 
+def stop_yolo():
+    global proc, file
+    # nothing to stop if process isn't running
+    if proc is None or proc.poll() is not None:
+        print("YOLO not running -> ignoring stop")
+        return
+ 
+    print("Stopping YOLO...")
+    proc.terminate()            # sends SIGTERM, lets run_yolo.py clean up gracefully
+ 
+    # give it 3 seconds to exit cleanly before forcing it
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        proc.kill()             # SIGKILL if it didn't respond to SIGTERM
+        proc.wait()
+ 
+    # close the log file now that the process is done
+    if file is not None:
+        file.close()
+        file = None
+ 
+    proc = None
+    print("YOLO stopped.")
+
+
 def main():
     port = find_pico_port()
     if not port:
@@ -58,6 +88,10 @@ def main():
             if line == TRIGGER_LINE:
                 print("RX: YOLO_TRIGGER")
                 start_yolo()
+            elif line == STOP_LINE:
+                print("RX: YOLO_STOP")
+                stop_yolo()
+
 
 if __name__ == "__main__":
     main()
