@@ -6,6 +6,7 @@ BAUD = 115200
 SERIAL_PORT = "/dev/ttyAMA0"
 TRIGGER_LINE = "YOLO_TRIGGER"
 STOP_LINE = "YOLO_STOP"
+PING_LINE = "PING"
 
 # Prevent spawning multiple YOLO runs at once
 proc = None
@@ -66,9 +67,14 @@ def main():
             if not line:
                 continue
 
-            if line == TRIGGER_LINE:
+            if line == PING_LINE:
+                print("RX: PING → sending PONG")
+                ser.write(b'PONG\n')
+
+            elif line == TRIGGER_LINE:
                 print("RX: YOLO_TRIGGER")
                 start_yolo()
+
             elif line == STOP_LINE:
                 print("RX: YOLO_STOP")
                 stop_yolo()
