@@ -12,7 +12,7 @@ PING_LINE = "PING"
 proc = None
 file = None
 
-
+# Start the YOLO process
 def start_yolo():
     global proc, file
     if proc is not None and proc.poll() is None:
@@ -32,7 +32,7 @@ def start_yolo():
         start_new_session=True
     )
 
-
+# Stop the YOLO process
 def stop_yolo():
     global proc, file
     if proc is None or proc.poll() is not None:
@@ -60,24 +60,31 @@ def main():
     print(f"Listening on {SERIAL_PORT} @ {BAUD}")
 
     with serial.Serial(SERIAL_PORT, BAUD, timeout=1) as ser:
+        ser.reset_input_buffer()    # flush any stale data on startup
         time.sleep(0.5)
 
         while True:
-            line = ser.readline().decode(errors="ignore").strip()
+            line = ser.readline().decode(errors="ignore").strip().replace('\x00', '')
             if not line:
                 continue
 
+            print(f"RX raw: '{line}'")    #
+            
             if line == PING_LINE:
                 print("RX: PING → sending PONG")
                 ser.write(b'PONG\n')
+                ser.flush()              # make sure PONG goes out immediately
 
             elif line == TRIGGER_LINE:
-                print("RX: YOLO_TRIGGER")
+                print("RX: YOLO_TRIGGER") # Start the YOLO process
                 start_yolo()
 
             elif line == STOP_LINE:
-                print("RX: YOLO_STOP")
+                print("RX: YOLO_STOP") # Stop the YOLO process
                 stop_yolo()
+
+            else:
+                print(f"RX: unknown command: '{line}'")
 
 
 if __name__ == "__main__":
